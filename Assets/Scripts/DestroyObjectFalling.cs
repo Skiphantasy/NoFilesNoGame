@@ -2,7 +2,7 @@
 
 public class DestroyObjectFalling : MonoBehaviour
 {
-    public void OnTriggerEnter2D(Collider2D collision)
+    public void OnTriggerExit2D(Collider2D collision)
     {
         if (collision.tag.Contains("ObjectFalling"))
         {

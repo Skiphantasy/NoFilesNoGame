@@ -13,6 +13,8 @@ TagManager:
   - ObjectFalling2
   - Player1Score
   - Player2Score
+  - ObjectFalling
+  - WinScreen
   layers:
   - Default
   - TransparentFX
