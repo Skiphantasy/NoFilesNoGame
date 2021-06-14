@@ -4,8 +4,10 @@ using Mirror;
 
 public class PlayerMovementNetworking : NetworkBehaviour
 {
-    public float speed;
-    public float jumpHeight;
+    public float speed = 5.0f;
+    public const float PlayerLerpEasing = 0.05f;
+    public const float PlayerLerpSpacing = 1.0f;
+    public const float PlayerFixedUpdateInterval = 0.01f;
 
     Vector2 screenBounds;
 
@@ -40,28 +42,31 @@ public class PlayerMovementNetworking : NetworkBehaviour
             pendingMoves = new List<PlayerInput>();
         }
 
-        screenBounds = new Vector2(15, 0);
+        screenBounds = new Vector2(10, 0);
         animator = GetComponent<Animator>();
     }
 
-    void Update()
+    void FixedUpdate()
     {
-        if (isLocalPlayer)
+        if (GameSparks.Core.GS.Authenticated)
         {
-            PlayerInput playerInput = GetPlayerInput();
+            if (isLocalPlayer)
+            {
+                PlayerInput playerInput = GetPlayerInput();
 
-            if (playerInput != null)
-            {
-                pendingMoves.Add(playerInput);
-                UpdatePredictedState();
-                CmdMoveOnServer(playerInput);
-            } else
-            {
-                CmdAnimateOnServer();
+                if (playerInput != null)
+                {
+                    pendingMoves.Add(playerInput);
+                    UpdatePredictedState();
+                    CmdMoveOnServer(playerInput);
+                } else
+                {
+                    CmdAnimateOnServer();
+                }
             }
-        }
 
-        SyncState();
+            SyncState();
+        }
     }
 
     [Command]
@@ -100,7 +105,7 @@ public class PlayerMovementNetworking : NetworkBehaviour
         PlayerState stateToRender = isLocalPlayer ? predictedState : state;
 
         GetComponent<SpriteRenderer>().flipX = stateToRender.flipped;
-        transform.position = stateToRender.position;
+        transform.position = Vector2.Lerp(transform.position, stateToRender.position * PlayerLerpSpacing, PlayerLerpEasing);
         animator.SetBool("isWalking", stateToRender.isWalking);
     }
 
@@ -114,7 +119,9 @@ public class PlayerMovementNetworking : NetworkBehaviour
         // valid input?
         if (newHorizontalSpeed >= -1 && newHorizontalSpeed <= 1)
         {
-            newPosition += new Vector2(newHorizontalSpeed, 0) * Time.deltaTime * speed;
+            newPosition += new Vector2(newHorizontalSpeed, 0)
+                * PlayerFixedUpdateInterval
+                * speed;
             newPosition.x = Mathf.Clamp(newPosition.x, -screenBounds.x, screenBounds.x);
 
             if (newHorizontalSpeed != 0)

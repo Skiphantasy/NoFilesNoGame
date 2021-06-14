@@ -12,4 +12,5 @@ public struct PlayerState
     public string  controllerPath;
     public string materialPath;
     public bool hasDetails;
+    public int index;
 }

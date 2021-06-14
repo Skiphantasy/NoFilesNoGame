@@ -14,7 +14,9 @@ public class PlayerScore : NetworkBehaviour
     List<Text> playerScoreTexts = new List<Text>(new Text[2]);
     private float timeSinceLastScoreUpdate = 0f;
     private float timeBetweenScoreUpdates = 1f;
-
+    
+    [SyncVar]
+    public string playerName;
     [SyncVar]
     public int playersConnected;
     [SyncVar]
@@ -29,13 +31,14 @@ public class PlayerScore : NetworkBehaviour
     private void Awake()
     {
         score = 0;
-        index = 0;      
+        index = 0;
+        playerName = "";
     }
 
     void Start()
-    {
-        playerAudioSource = this.gameObject.GetComponent<AudioSource>();
+    {    
         GameObject winScreenGameObject = GameObject.FindGameObjectWithTag("WinScreen");
+        playerAudioSource = this.gameObject.GetComponent<AudioSource>();
         GameObject p1Scoretext = GameObject.FindGameObjectWithTag("Player1Score");
         GameObject p2Scoretext = GameObject.FindGameObjectWithTag("Player2Score");
         playerScoreTexts[0] = p1Scoretext.GetComponent<Text>();
@@ -46,36 +49,41 @@ public class PlayerScore : NetworkBehaviour
             winScreen = winScreenGameObject.GetComponent<Canvas>();
             winText = winScreen.gameObject.GetComponentInChildren<Text>();
             selectedButton = winScreen.gameObject.GetComponentInChildren<Button>().gameObject;
-        }
+        }        
 
         winScreen.enabled = false;
     }
 
-    private void Update()
+    private void FixedUpdate()
     {
-        if (isServer)
-        {
-            playersConnected = NetworkServer.connections.Count;
-        }
-
-        if (isLocalPlayer)
-        {
-            CmdSetPlayerIndex();
-
-            timeSinceLastScoreUpdate += Time.deltaTime;
-
-            if (timeSinceLastScoreUpdate >= timeBetweenScoreUpdates)
+        if (GameSparks.Core.GS.Authenticated)
+        { 
+            if (isServer)
             {
-                if (!isFileProcessed)
-                {
-                    CmdCalculateScore();                   
-                }
-
-                timeSinceLastScoreUpdate -= timeBetweenScoreUpdates;
+                playersConnected = NetworkServer.connections.Count;
             }
-        }
 
-        SyncState();
+            if (isLocalPlayer)
+            {
+                CmdSetPlayerIndex();
+
+                timeSinceLastScoreUpdate += Time.deltaTime;
+
+                if (timeSinceLastScoreUpdate >= timeBetweenScoreUpdates)
+                {
+                    //CmdSetPlayerName();
+
+                    if (!isFileProcessed && index != 0)
+                    {
+                        CmdCalculateScore();                   
+                    }
+
+                    timeSinceLastScoreUpdate -= timeBetweenScoreUpdates;
+                }
+            }
+
+            SyncState();
+        }
     }
 
     public void SyncState()
@@ -97,22 +105,25 @@ public class PlayerScore : NetworkBehaviour
     [Command]
     void CmdCalculateScore()
     {
-        if (score >= 0 && score < 100)
+        if (GameSparks.Core.GS.Authenticated)
         {
-            if (isGoodFile)
+            if (score >= 0 && score < 100)
             {
-                score += 10;
-            } else
-            {
-                score -= 5;
-            }
+                if (isGoodFile)
+                {
+                    score += 10;
+                } else
+                {
+                    score -= 5;
+                }
 
-            if (score < 0)
-            {
-                score = 0;
-            }
+                if (score < 0)
+                {
+                    score = 0;
+                }
 
-            RpcUpdateFileBoolInClient(true);
+                RpcUpdateFileBoolInClient(true);
+            }
         }
     }
 
@@ -125,29 +136,50 @@ public class PlayerScore : NetworkBehaviour
     [Command]
     private void CmdSetPlayerIndex()
     {
-        if (index == 0)
-            index = int.Parse(this.gameObject.tag.Substring(this.gameObject.tag.Length - 1));        
+        try
+        {
+            if (index == 0)
+                index = int.Parse(this.gameObject.tag.Substring(this.gameObject.tag.Length - 1));        
+        } catch
+        {
+            Debug.Log("Error setting index");
+        }
     }
 
     public void OnTriggerEnter2D(Collider2D collision)
     {
-        if (collision.tag.Contains("ObjectFalling"))
+        if (isServer)
         {
-            if (index == int.Parse(collision.tag.Substring(collision.tag.Length - 1)))
+            if (collision.tag.Contains("ObjectFalling"))
             {
-                isGoodFile = true;                   
-            }
-            else
-            {
-                isGoodFile = false;          
-            }
+                if (index == int.Parse(collision.tag.Substring(collision.tag.Length - 1)))
+                {
+                    isGoodFile = true;                   
+                }
+                else
+                {
+                    isGoodFile = false;          
+                }
 
-            int clip = isGoodFile ? 2 : 1;
-            playerAudioSource.clip = audioClips[clip];
-            playerAudioSource.Play();
+                int clip = isGoodFile ? 2 : 1;
+                playerAudioSource.clip = audioClips[clip];
+                playerAudioSource.Play();
+                isFileProcessed = false;
+                Destroy(collision.gameObject);
 
-            isFileProcessed = false;
-            Destroy(collision.gameObject);
-        }       
+                RpcUpdateData(isGoodFile, isFileProcessed, collision.gameObject);
+            }       
+        }
+    }
+
+    [ClientRpc]
+    public void RpcUpdateData(bool goodFile, bool processed, GameObject objectToDestroy)
+    {
+        isFileProcessed = processed;
+        isGoodFile = goodFile;
+        int clip = isGoodFile ? 2 : 1;
+        playerAudioSource.clip = audioClips[clip];
+        playerAudioSource.Play();
+        Destroy(objectToDestroy);
     }
 }

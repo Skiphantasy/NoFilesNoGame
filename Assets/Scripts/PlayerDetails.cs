@@ -13,22 +13,28 @@ public class PlayerDetails : NetworkBehaviour
     [SyncVar]
     public int playersConnected;
 
-    private void Update()
+    [SyncVar]
+    bool charactersUpdated = false;
+
+    private void FixedUpdate()
     {
-        if (isServer)
+        if (GameSparks.Core.GS.Authenticated)
         {
-            playersConnected = NetworkServer.connections.Count;
-        }
-
-        if (isLocalPlayer)
-        {
-            if (playersConnected >= 1 && !playerState.hasDetails)
+            if (isServer)
             {
-                CmdStartGameOnServer();
+                playersConnected = NetworkServer.connections.Count;
             }
-        }
 
-        SyncState();
+            if (isLocalPlayer)
+            {
+                if (playersConnected == 2 && playerState.index == 0)
+                {
+                    CmdStartGameOnServer();
+                }
+            }
+
+            SyncState();
+        }
     }
 
     [Command]
@@ -45,22 +51,22 @@ public class PlayerDetails : NetworkBehaviour
         string newRuntimeAnimatorController = state.controllerPath;
         string newPlayerMaterial = state.materialPath;
         bool newHasDetails = state.hasDetails;
-        int index = 0;
+        int newIndex = state.index;
 
         if (GameObject.FindGameObjectWithTag("Player2") == null)
         {
-            index = 2;
+            newIndex = 2;
         } else
         {
-            index = 1;
+            newIndex = 1;
         }      
-        if (index != 0)
+        if (newIndex != 0)
         {
-            newSprite = $"Sprites/jump/character{index}_idle";
-            newTag = $"Player{index}";
-            newInteractionZoneTag = $"Player{index}InteractionZone";
-            newRuntimeAnimatorController = $"Animation/Player{index}";
-            newPlayerMaterial = $"Materials/Player{index}Outline";
+            newSprite = $"Sprites/jump/character{newIndex}_idle";
+            newTag = $"Player{newIndex}";
+            newInteractionZoneTag = $"Player{newIndex}InteractionZone";
+            newRuntimeAnimatorController = $"Animation/Player{newIndex}";
+            newPlayerMaterial = $"Materials/Player{newIndex}Outline";
             newHasDetails = true;
         }
 
@@ -70,32 +76,51 @@ public class PlayerDetails : NetworkBehaviour
             tag = newTag,
             interactionZoneTag = newInteractionZoneTag,
             controllerPath = newRuntimeAnimatorController,
+            materialPath = newPlayerMaterial,
             hasDetails = newHasDetails,
-            materialPath = newPlayerMaterial
+            index = newIndex
         };
     }
 
     public void SyncState()
     {
-        this.gameObject.tag = playerState.tag;
-        this.gameObject.GetComponentInChildren<Transform>().GetChild(0).tag = playerState.interactionZoneTag;
-        this.gameObject.GetComponent<SpriteRenderer>().sprite = Resources.Load<Sprite>(playerState.spritePath);
-        this.gameObject.GetComponent<Animator>().runtimeAnimatorController = Resources.Load<RuntimeAnimatorController>(playerState.controllerPath);
-        this.gameObject.GetComponent<SpriteRenderer>().material = Resources.Load<Material>(playerState.materialPath);
+        if (playerState.index != 0)
+        {
+            this.gameObject.tag = playerState.tag;
+            this.gameObject.GetComponentInChildren<Transform>().GetChild(0).tag = playerState.interactionZoneTag;
+            this.gameObject.GetComponent<SpriteRenderer>().sprite = Resources.Load<Sprite>(playerState.spritePath);
+            this.gameObject.GetComponent<Animator>().runtimeAnimatorController = Resources.Load<RuntimeAnimatorController>(playerState.controllerPath);
+            this.gameObject.GetComponent<SpriteRenderer>().material = Resources.Load<Material>(playerState.materialPath);
+        }        
+    }
+
+    [Command]
+    void CmdSetUpdatedStatus()
+    {
+        if (charactersUpdated == false)
+            charactersUpdated = true;
     }
 
     void Awake()
     {
-        playersConnected = 0;
-
-        playerState = new PlayerState()
+        if (GameSparks.Core.GS.Authenticated)
         {
-            spritePath = "Sprites/jump/character1_idle",
-            tag = "Player1",
-            interactionZoneTag = "Player1InteractionZone",
-            controllerPath = "Animation/Player1",
-            materialPath = "Materials/Player1Outline",
-            hasDetails = false
-        };
+            playersConnected = 0;
+
+            playerState = new PlayerState()
+            {
+                spritePath = "Sprites/jump/character1_idle",
+                tag = "Player1",
+                interactionZoneTag = "Player1InteractionZone",
+                controllerPath = "Animation/Player1",
+                materialPath = "Materials/Player1Outline",
+                index = 0
+            };
+        }
+    }
+
+    private void OnApplicationQuit()
+    {
+        GameSparks.Core.GS.Instance.Reset();
     }
 }

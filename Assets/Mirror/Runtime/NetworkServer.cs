@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Mirror.RemoteCalls;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace Mirror
 {
@@ -168,9 +169,11 @@ namespace Mirror
             dontListen = false;
             active = false;
             handlers.Clear();
-
             CleanupNetworkIdentities();
             NetworkIdentity.ResetNextNetworkId();
+            // Reload scene
+            Time.timeScale = 1;
+            SceneManager.LoadScene("Game");
         }
 
         // connections /////////////////////////////////////////////////////////

@@ -9,7 +9,7 @@ public class ObjectGenerator : NetworkBehaviour
     public List<GameObject> randomObjects;
     float timer;
     float creatingTime = 2f;
-    float creatingRange = 15f;
+    float creatingRange = 10f;
     int objectsToCreate = 2;
 
     [SyncVar]
@@ -30,21 +30,24 @@ public class ObjectGenerator : NetworkBehaviour
 
     private void Update()
     {
-        if (isServer)
+        if (GameSparks.Core.GS.Authenticated)
         {
-            playersConnected = NetworkServer.connections.Count;
-        }
-
-        if (playersConnected >= 1)
-        {
-            timer -= Time.deltaTime;
-
-            if (timer < 0)
+            if (isServer)
             {
-                timer = creatingTime;
-                ProcessingBoxState();
+                playersConnected = NetworkServer.connections.Count;
             }
-        }      
+
+            if (playersConnected == 1)
+            {
+                timer -= Time.deltaTime;
+
+                if (timer < 0)
+                {
+                    timer = creatingTime;
+                    ProcessingBoxState();
+                }
+            }      
+        }
     }
 
     public void ProcessingBoxState()

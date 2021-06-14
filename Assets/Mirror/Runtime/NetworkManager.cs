@@ -1262,6 +1262,7 @@ namespace Mirror
         // TODO client only ever uses NetworkClient.connection. this parameter is redundant.
         public virtual void OnClientDisconnect(NetworkConnection conn)
         {
+            GameSparks.Core.GS.Reset();
             StopClient();
         }
 
